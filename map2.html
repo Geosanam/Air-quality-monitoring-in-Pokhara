@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQM</title>
+    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css" integrity="sha256-sA+zWATbFveLLNqWO2gtiw3HL/lh1giY/Inf1BJ0z14=" crossorigin="" />
+	<link rel="stylesheet" href="../dist/Leaflet.Coordinates-0.1.3.css"/>
+    <style>
+        body{
+            margin: 0;
+            padding: 0;
+        }
+        #map{
+            width: 100%;
+            height: 93.5vh;
+        }
+        .coordinate{
+            position: absolute;
+            bottom: 100px;
+            right: 50%;
+        }
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+.legend {
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+}
+.topnav {
+  overflow: hidden;
+  background-color: #333;
+}
+
+.topnav a {
+  float: left;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+
+.topnav a:hover {
+  background-color: #ddd;
+  color: black;
+}
+
+.topnav a.active {
+  background-color: #04e894;
+  color: white;
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a class="active" href="#home">PM10</a>
+  <a href="./map2.5.html">PM2.5</a>
+</div>
+
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="leaflet-control coordinate">
+    </div>
+	
+</body>
+</html>
+<script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js" integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKhg=" crossorigin=""></script>
+<script src="./hello.js"></script>
+<script>
+var map = L.map('map').setView([28.2527,83.9779], 19);
+var Esri_WorldGrayCanvas = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+	attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+	maxZoom: 16
+});
+
+var osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+});
+
+var googleStreets = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{
+    maxZoom: 20,
+    subdomains:['mt0','mt1','mt2','mt3']
+});
+Esri_WorldGrayCanvas.addTo(map)
+var basemaps={
+    "openstreetmap":osm,
+    "google map":googleStreets
+}
+L.control.layers(basemaps).addTo(map);
+L.geoJSON(elevjson).addTo(map);
+
+
+var info = L.control();
+
+info.onAdd = function (map) {
+    this._div = L.DomUtil.create('div', 'info');
+    this.update();
+    return this._div;
+};
+
+info.update = function (props) {
+    this._div.innerHTML = '<h4>Air Quality Index</h4>' +  (props ?
+        '<b>' +'temperature: ' + props.temperatur + '</b><br />' +'<b>' + 'PM10: '+'</b>' + '<b>' +  props.PM10 +'<br/>'+'Lat: ' + props.Y+'<br/>'+'Lng: ' + props.X : 'Hover over a point');
+};
+
+info.addTo(map);
+function getColor(d) {
+	return d > 300 ? '#4A235A' :
+			d >200  ? '#FF33F3' :
+			d>150 ? '#FF4233':
+			d>100 ?	'#D35400':
+			d>50 ? '#F1C40F':
+			d > 0  ? '#196F3D' :'#FFEDA0';
+	}
+
+	function style(feature) {
+		return {
+			weight: 0,
+			opacity: 0.5,
+            color:"#000000",
+			fillOpacity:5,
+			fillColor: getColor(feature.properties.PM10)
+		};
+	}
+
+function highlightFeature(e) {
+		var layer = e.target;
+
+		layer.setStyle({
+			weight: 5,
+			color: '#666',
+			dashArray: '',
+			fillOpacity: 1
+		});
+
+		if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+			layer.bringToFront();
+		}
+
+		info.update(layer.feature.properties);
+	}
+
+var geojson;
+
+function resetHighlight(e) {
+		geojson.resetStyle(e.target);
+		info.update();
+	}
+
+function zoomToFeature(e) {
+		map.fitBounds(e.target.getBounds());
+	}
+
+function onEachFeature(feature, layer) {
+		layer.on({
+			mouseover: highlightFeature,
+			mouseout: resetHighlight,
+			click: zoomToFeature
+		});
+	}
+
+	/* global statesData */
+geojson = L.geoJson(elevjson, {
+    style:style,
+	onEachFeature: onEachFeature,
+	}).addTo(map);
+
+	var legend = L.control({position: 'bottomright'});
+
+	legend.onAdd = function (map) {
+
+		var div = L.DomUtil.create('div', 'info legend');
+		var grades = [0, 50, 100, 150, 200, 300];
+        var text = ['Healthy','Moderate','Unhealthy for S.G.','Unhealthy','Very unhealthy','Hazardous']
+		var labels = [];
+		var from, to;
+
+		for (var i = 0; i < grades.length; i++) {
+			from = grades[i];
+			to = grades[i + 1];
+
+			labels.push(
+				'<i style="background:' + getColor(from + 1) + '"></i> ' +
+				text[i]);
+		}
+
+		div.innerHTML = labels.join('<br>');
+		return div;
+	};
+
+	legend.addTo(map);
+
+map.on('mousemove',function(e){
+    document.getElementsByClassName('coordinate')[0].innerHTML='lat: '+e.latlng.lat+'lng: '+e.latlng.lng;
+    console.log('lat: '+e.latlng.lat+'lng: '+e.latlng.lng)
+})
+
+</script>
